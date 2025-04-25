@@ -40,10 +40,10 @@ def gast_diff(gast):
 
 #creates the scoring matrix of all vs all
 score = {}
-total_count = len(gast)
+total_count = len(gast_charge)
 for i in range(0,30):
     test = round(i*10**-1,1) #where 10^d, d is number of zeros after max of range
-    count = len([x for x in gast if x >= test])
+    count = len([x for x in gast_charge if x >= test])
     prob = count/total_count
     score[test] = np.log2(prob)
 
