@@ -1,3 +1,9 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[37]:
+
+
 import numpy as np
 import pubchempy
 import rdkit
@@ -9,6 +15,10 @@ import pandas as pd
 import time
 import seaborn as sns
 import matplotlib.pyplot as plt
+
+
+# In[38]:
+
 
 #variable neccessary for list creation
 CHAR = set(['(',')','{','}','[',']','=','@','.','#','+','-','/','\\''0','1','2','3','4','5','6','7','8','9'])
@@ -30,9 +40,17 @@ elements = [
     "Ts", "Og"
 ]
 
+
+# In[39]:
+
+
 #opens dictionary of dictionary scoring matrix
 with open('score_pair_doubles.pkl', 'rb') as f:
     pair_dif_score = pickle.load(f)
+
+
+# In[40]:
+
 
 #function that changes a string of SMILES to a list
 def parse_smiles(smile, reverse=False):
@@ -67,6 +85,10 @@ def parse_smiles(smile, reverse=False):
     else:
         return smiles
 
+
+# In[41]:
+
+
 #returns a list of gastieger charges in a smile, list includes the index of the SMILE
 #where atoms are given a value, and characters are give '-'
 def gast_smiles(smile):
@@ -87,6 +109,10 @@ def gast_smiles(smile):
             count += 1
 
     return(gast_smile)
+
+
+# In[42]:
+
 
 #scoring function that returns score. characters are either matched or mismatched,
 #and atoms are given a score based of the scoring matrix. alpha and beta are the 
@@ -109,6 +135,11 @@ def score(alpha, beta , gast1, gast2):
     
     else: 
         return(mis_match_score)
+    
+
+
+# In[43]:
+
 
 from collections import deque
 
@@ -137,6 +168,10 @@ def reconstruct_smiles(modified_smiles, original_smiles):
     result.extend(original_queue)
 
     return ''.join(result)
+
+
+# In[44]:
+
 
 #alignment function based on Needelman-Wunsch
 def align(seq1, seq2):
@@ -197,6 +232,10 @@ def align(seq1, seq2):
     
     return(seq1_align[::-1] , seq2_align[::-1], M[len1,len2],smiles_out1,smiles_out2)
 
+
+# In[45]:
+
+
 #Levenshtein similairty for comparing the similarity of the truth and observed
 def levenshtein_similarity(s1, s2):
     if len(s1) < len(s2):
@@ -220,6 +259,10 @@ def levenshtein_similarity(s1, s2):
     max_len = max(len(s1), len(s2))
     return 1 - distance / max_len
 
+
+# In[46]:
+
+
 def string_similarity(truth, experimental):
     """
     Calculate the percentage similarity between two strings based on exact match. Extra characters in the 
@@ -238,6 +281,10 @@ def string_similarity(truth, experimental):
     similarity_percentage = (matches / max_len)
     return similarity_percentage
 
+
+# In[47]:
+
+
 #canonized SMILES
 canonized = ('[O-]C(=O)C(=O)CC([O-])=O',
 '[O-]C(=O)C(O)(CC([O-])=O)CC([O-])=O',
@@ -246,6 +293,10 @@ canonized = ('[O-]C(=O)C(=O)CC([O-])=O',
 '[O-]C(=O)CCC([O-])=O',
 '[O-]C(=O)C=CC([O-])=O',
 '[O-]C(=O)C(O)CC([O-])=O')
+
+
+# In[48]:
+
 
 truth_set = ((('OCOCOCCOO', 'OCOCOCCOO'),
   ('OCOCO----CCOO', 'OCOCOCCOOCCOO'),
@@ -297,6 +348,10 @@ truth_set = ((('OCOCOCCOO', 'OCOCOCCOO'),
   ('OCOCOCCOO', 'OCOC-CCOO'),
   ('OCOCOCCOO', 'OCOCOCCOO')))
 
+
+# In[49]:
+
+
 import pandas as pd
 import time
 
@@ -337,7 +392,14 @@ stop = time.time()
 
 print(stop-start)
 
+pd.set_option('display.max_rows', None)
+pd.set_option('display.width', 0)
+
 print(df)
+
+
+# In[50]:
+
 
 df_sorted = df.sort_values(by='Levenshtein Average', ascending=False)
 
@@ -346,6 +408,17 @@ df_sorted = df.sort_values(by='Levenshtein Average', ascending=False)
 
 
 df_sorted.head(10)
+
+
+
+
+
+# In[21]:
+
+
+
+# In[23]:
+
 
 #proof of concept using Pentose phosphate pathway
 ppp = ['OC1OC(COP(O)(O)=O)C(O)C(O)C1O',
@@ -358,6 +431,8 @@ ppp = ['OC1OC(COP(O)(O)=O)C(O)C(O)C1O',
  'OCC1(O)OC(COP(O)(O)=O)C(O)C1O',
  'OC1OC(COP(O)(O)=O)C(O)C(O)C1O']
 
+
+# In[24]:
 data = []
 
 gap_open_penalty = -2
