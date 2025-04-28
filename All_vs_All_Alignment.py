@@ -1,3 +1,9 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[54]:
+
+
 import numpy as np
 import pubchempy
 import rdkit
@@ -5,6 +11,10 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 import math
 import pickle
+
+
+# In[55]:
+
 
 
 #variable neccessary for list creation
@@ -28,12 +38,26 @@ elements = [
 ]
 
 
+# In[56]:
+
+
 #Opens scoring dictionary of all vs all
 with open('score_all_v_all.pkl', 'rb') as f:
     score_dict = pickle.load(f)
 
+
+
+
+# In[58]:
+
 #adding threshold to dictionary
 score_dict = {key: value + 1.524353523624236 for key, value in score_dict.items()}
+
+
+
+
+# In[60]:
+
 
 #function that changes a string of SMILES to a list
 def parse_smiles(smile, reverse=False):
@@ -68,6 +92,10 @@ def parse_smiles(smile, reverse=False):
     else:
         return smiles
 
+
+# In[61]:
+
+
 #returns a list of gastieger charges in a smile, list includes the index of the SMILE
 #where atoms are given a value, and characters are give '-'
 def gast_smiles(smile):
@@ -89,6 +117,10 @@ def gast_smiles(smile):
 
     return(gast_smile)
 
+
+# In[62]:
+
+
 #scoring function that returns score. characters are either matched or mismatched,
 #and atoms are given a score based of the scoring matrix. alpha and beta are the 
 #atoms or characters, and gast1 and gast2 are gasteiger charges (or '-' if characters)
@@ -108,6 +140,10 @@ def score(alpha, beta , gast1, gast2):
     else: 
         return(mis_match_score)
     
+
+
+# In[63]:
+
 #Reintroduces non-atomic characters to aligned fingerprints
 from collections import deque
 
@@ -136,6 +172,10 @@ def reconstruct_smiles(modified_smiles, original_smiles):
     result.extend(original_queue)
 
     return ''.join(result)
+
+
+# In[64]:
+
 
 #alignment function based on Needelman-Wunsch
 def align(seq1, seq2):
@@ -197,6 +237,11 @@ def align(seq1, seq2):
     
     #Returns seq1 fingerprint alignemnt, seq2 fingerprint alignemnt, alignment score, seq1 reconstructed alignment, seq2 reconstructed alignemnt
     return(seq1_align[::-1] , seq2_align[::-1], M[len1,len2],smiles_out1,smiles_out2)
+    
+
+
+# In[65]:
+
 
 #Levenshtein similairty for comparing the similarity of the truth and observed
 def levenshtein_similarity(s1, s2):
@@ -221,6 +266,9 @@ def levenshtein_similarity(s1, s2):
     max_len = max(len(s1), len(s2))
     return 1 - distance / max_len
 
+
+# In[66]:
+
 #exact string similiarity 
 def string_similarity(truth, experimental):
     """
@@ -240,6 +288,9 @@ def string_similarity(truth, experimental):
     similarity_percentage = (matches / max_len)
     return similarity_percentage
 
+
+# In[14]:
+
 #Validation of Parameters
 
 
@@ -251,6 +302,9 @@ canonized = ('[O-]C(=O)C(=O)CC([O-])=O',
 '[O-]C(=O)CCC([O-])=O',
 '[O-]C(=O)C=CC([O-])=O',
 '[O-]C(=O)C(O)CC([O-])=O')
+
+
+# In[15]:
 
 #Hand aligned truth set
 truth_set = ((('OCOCOCCOO', 'OCOCOCCOO'),
@@ -303,6 +357,10 @@ truth_set = ((('OCOCOCCOO', 'OCOCOCCOO'),
   ('OCOCOCCOO', 'OCOC-CCOO'),
   ('OCOCOCCOO', 'OCOCOCCOO')))
 
+
+# In[68]:
+
+
 import pandas as pd
 import time
 
@@ -343,18 +401,50 @@ stop = time.time()
 
 print(stop-start)
 
+pd.set_option('display.max_rows', None)
+pd.set_option('display.width', 0)
+
 print(df)
+
+
+# In[69]:
+
 
 df_sorted = df.sort_values(by='Levenshtein Average', ascending=False)
 
+
+# In[70]:
+
+
 df_sorted.head(10)
+
+
+# In[71]:
+
 
 df_sorted = df.sort_values(by='Exact Average', ascending=False)
 
+
+# In[72]:
+
+
 df_sorted.head(10)
+
+
+# In[73]:
+
 
 import seaborn as sns
 import matplotlib.pyplot as plt
+
+
+# In[19]:
+
+
+
+
+# In[26]:
+
 
 # List of columns except 'Levenshtein Average'
 columns = [col for col in df.columns if col != 'Levenshtein Average']
@@ -367,6 +457,10 @@ for column in columns:
     plt.xlabel(column)
     plt.ylabel('Levenshtein Average')
     plt.show()
+
+
+# In[27]:
+
 
 # List of columns except 'Except Average'
 columns = [col for col in df.columns if col != 'Exact Average']
@@ -382,6 +476,9 @@ for column in columns:
 
 
 # Application of Pentose Phosphate Pathway
+
+# In[28]:
+
 
 ppp = ['OC1OC(COP(O)(O)=O)C(O)C(O)C1O',
  'OC1C(COP(O)(O)=O)OC(=O)C(O)C1O',
@@ -438,6 +535,8 @@ for lst in result:
 averages = [sum_val / len(result) for sum_val in sums]
 
 data.append(averages)
+
+
 
 #Plotting Aplication PPP
 
