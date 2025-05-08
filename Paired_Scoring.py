@@ -1,29 +1,25 @@
+#!/usr/bin/env python
+# coding: utf-8
+
 import rdkit
 from rdkit import Chem
 from rdkit.Chem import AllChem
 import math
 import numpy as np
-from rdkit import Chem
 from rdkit.Chem import rdPartialCharges
 from collections import defaultdict
-from itertools import combinations
 from itertools import product
+import pickle
+import gc
 
-# empty list to read list from a file
+# Read SMILES strings from file
 smiles = []
-
-# open file and read the content in a list
 with open(r'smiles.txt', 'r') as fp:
     for line in fp:
-        # remove linebreak from a current name
-        # linebreak is the last character of each line
-        x = line[:-1]
-
-        # add current item to the list
+        x = line.strip()  # safer than line[:-1]
         smiles.append(x)
 
-#Function to calculate Gasteiger charges of each atom in each molecules
-#output is a dictionary that pairs all atoms with their charges
+# Function to calculate Gasteiger charges for each atom
 def calculate_gasteiger_charges(smiles):
     molecule = Chem.MolFromSmiles(smiles)
     rdPartialCharges.ComputeGasteigerCharges(molecule)
@@ -34,63 +30,95 @@ def calculate_gasteiger_charges(smiles):
         gasteiger_charges[atom_symbol].append(float(atom_charge))
     return gasteiger_charges
 
-#Makes a list of all charges in all molecules
+# Collect all charges by atom type
 all_charges = defaultdict(list)
 for smile in smiles:
     charges = calculate_gasteiger_charges(smile)
     for atom, charge in charges.items():
         all_charges[atom].extend(charge)
 
-#Removes all inf and NA
+# Remove NaN and inf values
 atom_dict = {}
 for atom, charges in all_charges.items():
-    charges = [x for x in charges if not math.isnan(x)]
-    charges = [x for x in charges if not math.isinf(x)]
+    charges = [x for x in charges if not math.isnan(x) and not math.isinf(x)]
     atom_dict[atom] = charges
 
+# Build list of atom type pairs
 elements = atom_dict.keys()
 atom_pairs = list(product(elements, repeat=2))
+
+# Compute pairwise charge differences using chunking to avoid memory errors
+def compute_chunked_combinations(charges, chunk_size=1000):
+    diffs = []
+    n = len(charges)
+    for i in range(0, n, chunk_size):
+        chunk_i = charges[i:i+chunk_size]
+        for j in range(i+1, n, chunk_size):
+            chunk_j = charges[j:j+chunk_size]
+            diffs.extend([abs(a - b) for a in chunk_i for b in chunk_j])
+        # handle self-pair chunk (i == j)
+        chunk_j = chunk_i
+        for x in range(len(chunk_j)):
+            for y in range(x+1, len(chunk_j)):
+                diffs.append(abs(chunk_j[x] - chunk_j[y]))
+    return diffs
+
 charge_diffs = {}
-
-#itterates through all the dictionaries and calcualtes the differences
-#in the respective atomic groups
 for atom1, atom2 in atom_pairs:
-    if atom1 in all_charges and atom2 in all_charges:
-        combined_charges = all_charges[atom1] + all_charges[atom2]
-        charge_diffs[(atom1, atom2)] = [abs(j-i) for i, j in combinations(combined_charges, 2)]
+    if atom1 in atom_dict and atom2 in atom_dict:
+        if atom1 == atom2:
+            # Intra-type pairwise differences (combinations from one list)
+            diffs = compute_chunked_combinations(atom_dict[atom1])
+        else:
+            # Inter-type differences (full outer product)
+            diffs = []
+            list1 = atom_dict[atom1]
+            list2 = atom_dict[atom2]
+            len1, len2 = len(list1), len(list2)
+            for i in range(0, len1, 1000):
+                chunk1 = list1[i:i+1000]
+                for j in range(0, len2, 1000):
+                    chunk2 = list2[j:j+1000]
+                    diffs.extend([abs(a - b) for a in chunk1 for b in chunk2])
+        charge_diffs[(atom1, atom2)] = diffs
+        gc.collect()
 
+# Build dictionary of raw diffs for scoring
 pair_dif = {}
 for pair, diffs in charge_diffs.items():
     pair_dif[pair] = diffs
 
-#Creates the scoring dictionary of dictionaries
+# Build scoring dictionary with log2 probabilities
 score_pair = {}
 for pair in pair_dif.keys():
     gast = pair_dif[pair]
     total_count = len(gast)
+    if total_count == 0:
+        continue  # Skip pairs with no differences
     score = {}
-    
-    for i in range(0,30):
-        test = round(i*10**-1, 1)
+    for i in range(0, 30):
+        test = round(i * 0.1, 1)
         count = len([x for x in gast if x >= test])
-        prob = count/total_count
-        score[test] = np.log2(prob)
-        
+        prob = count / total_count
+        score[test] = np.log2(prob) if prob > 0 else float('-inf')
     score_pair[pair] = score
 
-#Function that changes inf to the largest penalty
+# Replace -inf with most negative non-inf value
 def replace_neg_inf_with_max(dictionary):
-    most_neg_value = min(value for inner_dict in dictionary.values() for value in inner_dict.values() if value != float('-inf'))
+    most_neg_value = min(
+        value for inner_dict in dictionary.values()
+        for value in inner_dict.values()
+        if value != float('-inf')
+    )
     for inner_dict in dictionary.values():
         for key, value in inner_dict.items():
             if value == float('-inf'):
                 inner_dict[key] = most_neg_value
-
     return dictionary
 
+# Apply -inf fix
 result = replace_neg_inf_with_max(score_pair)
 
+# Save to pickle file
 with open('score_pair_doubles.pkl', 'wb') as f:
     pickle.dump(result, f)
-
-
