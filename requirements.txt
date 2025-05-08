@@ -1,0 +1,31 @@
+Python 3.12
+install the following modules to run All_vs_All_Alignment:
+
+numpy
+PubChemPy
+rdkit
+pandas
+seaborn
+matplotlib
+
+install the following modules to run All_vs_All_Scoring:
+numpy
+rdkit
+
+install the following modules to run Paired_Alignment:
+numpy
+PubChemPy
+rdkit
+pandas
+seaborn
+matplotlib
+
+install the following modules to run Paired_Scoring:
+numpy
+rdkit
+gc-python-utils
+
+install the following modules to run KEGG:
+biopython
+PubChemPy
+epam.indigo
