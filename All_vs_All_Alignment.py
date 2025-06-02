@@ -1,21 +1,13 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[54]:
-
-
 import numpy as np
 import pubchempy
 import rdkit
 from rdkit import Chem
 from rdkit.Chem import AllChem
+from rdkit.Chem import DataStructs
+from rdkit import RDLogger
+RDLogger.DisableLog('rdApp.*')
 import math
 import pickle
-
-
-# In[55]:
-
-
 
 #variable neccessary for list creation
 CHAR = set(['(',')','{','}','[',']','=','@','.','#','+','-','/','\\''0','1','2','3','4','5','6','7','8','9'])
@@ -37,27 +29,12 @@ elements = [
     "Ts", "Og"
 ]
 
-
-# In[56]:
-
-
 #Opens scoring dictionary of all vs all
 with open('score_all_v_all.pkl', 'rb') as f:
     score_dict = pickle.load(f)
 
-
-
-
-# In[58]:
-
 #adding threshold to dictionary
 score_dict = {key: value + 1.524353523624236 for key, value in score_dict.items()}
-
-
-
-
-# In[60]:
-
 
 #function that changes a string of SMILES to a list
 def parse_smiles(smile, reverse=False):
@@ -92,10 +69,6 @@ def parse_smiles(smile, reverse=False):
     else:
         return smiles
 
-
-# In[61]:
-
-
 #returns a list of gastieger charges in a smile, list includes the index of the SMILE
 #where atoms are given a value, and characters are give '-'
 def gast_smiles(smile):
@@ -117,10 +90,6 @@ def gast_smiles(smile):
 
     return(gast_smile)
 
-
-# In[62]:
-
-
 #scoring function that returns score. characters are either matched or mismatched,
 #and atoms are given a score based of the scoring matrix. alpha and beta are the 
 #atoms or characters, and gast1 and gast2 are gasteiger charges (or '-' if characters)
@@ -140,10 +109,6 @@ def score(alpha, beta , gast1, gast2):
     else: 
         return(mis_match_score)
     
-
-
-# In[63]:
-
 #Reintroduces non-atomic characters to aligned fingerprints
 from collections import deque
 
@@ -173,10 +138,6 @@ def reconstruct_smiles(modified_smiles, original_smiles):
 
     return ''.join(result)
 
-
-# In[64]:
-
-
 #alignment function based on Needelman-Wunsch
 def align(seq1, seq2):
     
@@ -201,7 +162,6 @@ def align(seq1, seq2):
     Y[0, :] = gap_open_penalty + gap_extend_penalty * np.arange(len2+1)
     Y[:, 0] = -np.inf
     
-    #works
     for i in range(1, len1+1):
             for j in range(1, len2+1):
                  # Calculate match/mismatch score using the scoring matrix
@@ -229,19 +189,11 @@ def align(seq1, seq2):
             j -= 1
         else:
             break
-    
-    
-    #return(seq1_align[::-1] , seq2_align[::-1])
     smiles_out1 = reconstruct_smiles(seq1_align[::-1], seq1_orig)
     smiles_out2 = reconstruct_smiles(seq2_align[::-1], seq2_orig)
     
     #Returns seq1 fingerprint alignemnt, seq2 fingerprint alignemnt, alignment score, seq1 reconstructed alignment, seq2 reconstructed alignemnt
     return(seq1_align[::-1] , seq2_align[::-1], M[len1,len2],smiles_out1,smiles_out2)
-    
-
-
-# In[65]:
-
 
 #Levenshtein similairty for comparing the similarity of the truth and observed
 def levenshtein_similarity(s1, s2):
@@ -266,9 +218,6 @@ def levenshtein_similarity(s1, s2):
     max_len = max(len(s1), len(s2))
     return 1 - distance / max_len
 
-
-# In[66]:
-
 #exact string similiarity 
 def string_similarity(truth, experimental):
     """
@@ -288,13 +237,29 @@ def string_similarity(truth, experimental):
     similarity_percentage = (matches / max_len)
     return similarity_percentage
 
+def tanimoto_aligned_characters(align, truth):
+    intersection = 0
+    union = 0
 
-# In[14]:
+    for c1, c2 in zip(align, truth):
+        # Skip positions where both are gaps
+        if c1 == '-' and c2 == '-':
+            continue
+
+        # Count matching positions
+        if c1 == c2:
+            intersection += 1
+
+        # Count union for all non double-gap positions
+        union += 1
+
+    return intersection / union if union > 0 else 0.0
 
 #Validation of Parameters
 
 
 #canonized SMILES
+
 canonized = ('[O-]C(=O)C(=O)CC([O-])=O',
 '[O-]C(=O)C(O)(CC([O-])=O)CC([O-])=O',
 '[O-]C(=O)C(CC([O-])=O)C(O)C([O-])=O',
@@ -302,9 +267,6 @@ canonized = ('[O-]C(=O)C(=O)CC([O-])=O',
 '[O-]C(=O)CCC([O-])=O',
 '[O-]C(=O)C=CC([O-])=O',
 '[O-]C(=O)C(O)CC([O-])=O')
-
-
-# In[15]:
 
 #Hand aligned truth set
 truth_set = ((('OCOCOCCOO', 'OCOCOCCOO'),
@@ -357,15 +319,11 @@ truth_set = ((('OCOCOCCOO', 'OCOCOCCOO'),
   ('OCOCOCCOO', 'OCOC-CCOO'),
   ('OCOCOCCOO', 'OCOCOCCOO')))
 
-
-# In[68]:
-
-
 import pandas as pd
 import time
+alignment_log = open("All_vs_All_Alignment_output.txt", "w")
 
 start = time.time()
-# Initialize an empty list to store the results
 results = []
 run = 1
 
@@ -379,72 +337,91 @@ for gap_open_penalty in range(-5, 6):
                 for i in range(0, len(canonized)):
                     # aligns
                     a = align(canonized[j], canonized[i])
-                    # compares truth with levenshtein
+                    alignment_log.write(f"\nParameter Test - Gap Open: {gap_open_penalty}, Gap Extend: {gap_extend_penalty}\n")
+                    alignment_log.write(f"Original 1: {canonized[j]}\nOriginal 2: {canonized[i]}\n")
+                    alignment_log.write(f"Aligned 1:  {a[3]}\nAligned 2:  {a[4]}\n")
+                    alignment_log.write(f"Score: {a[2]}\n")
+                    alignment_log.write("-" * 60 + "\n")
                     similarity1 = levenshtein_similarity(a[0], truth_set[j][i][0])
                     similarity2 = levenshtein_similarity(a[1], truth_set[j][i][1])
                     similarities.extend((similarity1, similarity2))
-
-                    # compares with exact
                     similarity_a = string_similarity(a[0], truth_set[j][i][0])
                     similarity_b = string_similarity(a[1], truth_set[j][i][1])
                     exact.extend((similarity_a, similarity_b))
 
             levenshtein_average = sum(similarities) / len(similarities)
             exact_average = sum(exact) / len(exact)
+            print(f"Gap Open: {gap_open_penalty}, Gap Extend: {gap_extend_penalty}, Levenshtein Avg: {levenshtein_average:.4f}, Exact Avg: {exact_average:.4f}")
             results.append([gap_open_penalty, gap_extend_penalty, levenshtein_average, exact_average])
 
             
             
 df = pd.DataFrame(results, columns=[ 'Gap Open Penalty', 'Gap Extend Penalty', 'Levenshtein Average', 'Exact Average'])
+df.to_csv("All_vs_All_Alignment_parameter_results.csv", index=False)
+best_params = df.sort_values(by='Levenshtein Average', ascending=False).iloc[0]
+gap_open_penalty = best_params['Gap Open Penalty']
+gap_extend_penalty = best_params['Gap Extend Penalty']
+print(f"\nBest parameters found:\nGap Open = {gap_open_penalty}, Gap Extend = {gap_extend_penalty}")
 
-stop = time.time()
+optalignment_log = open("All_vs_All_optimal_alignment_output.txt", "w")
+optalignment_log.write(f"Optimal Parameters Used:\nGap Open: {gap_open_penalty}, Gap Extend: {gap_extend_penalty}\n\n")
 
-print(stop-start)
+for j in range(len(canonized)):
+    for i in range(len(canonized)):
+        a = align(canonized[j], canonized[i])
 
-pd.set_option('display.max_rows', None)
-pd.set_option('display.width', 0)
+        # Optionally compute similarity
+        levenshtein1 = levenshtein_similarity(a[0], truth_set[j][i][0])
+        levenshtein2 = levenshtein_similarity(a[1], truth_set[j][i][1])
 
-print(df)
+        # Write aligned output
+        smiles1 = canonized[j]
+        smiles2 = canonized[i]
+        aligned1 = a[3]
+        aligned2 = a[4]
+        truth1 = truth_set[j][i][0]
+        truth2 = truth_set[j][i][1]
+        score_val = a[2]
 
+        # Levenshtein and Exact
+        lev1 = levenshtein_similarity(a[0], truth_set[j][i][0])
+        lev2 = levenshtein_similarity(a[1], truth_set[j][i][1])
+        exact1 = string_similarity(a[0], truth_set[j][i][0])
+        exact2 = string_similarity(a[1], truth_set[j][i][1])
 
-# In[69]:
+        mol1 = Chem.MolFromSmiles(smiles1)
+        mol2 = Chem.MolFromSmiles(smiles2)  
+
+        fp1 = AllChem.GetMorganFingerprintAsBitVect(mol1, 2)
+        fp2 = AllChem.GetMorganFingerprintAsBitVect(mol2, 2)
+        tanimoto_fp = DataStructs.TanimotoSimilarity(fp1, fp2)
+
+        tanimoto1 = tanimoto_aligned_characters(a[0], truth_set[j][i][0])
+        tanimoto2 = tanimoto_aligned_characters(a[1], truth_set[j][i][1])
+                
+        optalignment_log.write(f"Original 1: {smiles1}\nOriginal 2: {smiles2}\n")
+        optalignment_log.write(f"Aligned 1:  {aligned1}\nAligned 2:  {aligned2}\n")
+        optalignment_log.write(f"Alignment Score: {score_val:.4f}\n")
+
+        optalignment_log.write(f"Levenshtein Similarities: {lev1:.4f}, {lev2:.4f}\n")
+        optalignment_log.write(f"Exact Match Similarities: {exact1:.4f}, {exact2:.4f}\n")
+        optalignment_log.write(
+            f"RDKit Fingerprint Tanimoto: "
+            f"{round(tanimoto1, 4) if tanimoto1 is not None else 'Invalid'}, "
+            f"{round(tanimoto2, 4) if tanimoto2 is not None else 'Invalid'}\n"
+        )
+        optalignment_log.write("-" * 75 + "\n")
+
+optalignment_log.close()
 
 
 df_sorted = df.sort_values(by='Levenshtein Average', ascending=False)
-
-
-# In[70]:
-
-
 df_sorted.head(10)
-
-
-# In[71]:
-
-
 df_sorted = df.sort_values(by='Exact Average', ascending=False)
-
-
-# In[72]:
-
-
 df_sorted.head(10)
-
-
-# In[73]:
-
 
 import seaborn as sns
 import matplotlib.pyplot as plt
-
-
-# In[19]:
-
-
-
-
-# In[26]:
-
 
 # List of columns except 'Levenshtein Average'
 columns = [col for col in df.columns if col != 'Levenshtein Average']
@@ -457,10 +434,6 @@ for column in columns:
     plt.xlabel(column)
     plt.ylabel('Levenshtein Average')
     plt.show()
-
-
-# In[27]:
-
 
 # List of columns except 'Except Average'
 columns = [col for col in df.columns if col != 'Exact Average']
@@ -477,9 +450,6 @@ for column in columns:
 
 # Application of Pentose Phosphate Pathway
 
-# In[28]:
-
-
 ppp = ['OC1OC(COP(O)(O)=O)C(O)C(O)C1O',
  'OC1C(COP(O)(O)=O)OC(=O)C(O)C1O',
  'OC(COP(O)(O)=O)C(O)C(O)C(O)C(O)=O',
@@ -493,9 +463,9 @@ ppp = ['OC1OC(COP(O)(O)=O)C(O)C(O)C1O',
 
 data = []
 
-gap_open_penalty = 0
-gap_extend_penalty = 0
-    
+best_params = df.sort_values(by='Levenshtein Average', ascending=False).iloc[0]
+gap_open_penalty = best_params['Gap Open Penalty']
+gap_extend_penalty = best_params['Gap Extend Penalty']
 result = []
 
 n = len(ppp)
@@ -517,6 +487,10 @@ for i in range(n):
 
         # Call align function with the chosen index
         a = align(cycled_list[0], cycled_list[align_index])
+        alignment_log.write(f"\nPPP Alignment:\nStart:   {cycled_list[0]}\nCompare: {cycled_list[align_index]}\n")
+        alignment_log.write(f"Aligned 1: {a[3]}\nAligned 2: {a[4]}\n")
+        alignment_log.write(f"Score:     {a[2]}\n")
+        alignment_log.write("-" * 60 + "\n")
         score_lst.append(a[2])
 
     result.append(score_lst)
@@ -536,14 +510,11 @@ averages = [sum_val / len(result) for sum_val in sums]
 
 data.append(averages)
 
-
-
 #Plotting Aplication PPP
 
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Assuming 'result' is defined somewhere in your code
 data = np.array(result)
 
 # Calculate mean and standard deviation for each position
@@ -560,9 +531,8 @@ plt.grid(True)
 
 # Set x-ticks to whole numbers
 plt.xticks(range(len(means)))
-
-# Uncomment the next line if you want to show the plot in a script
-# plt.show()
-
 plt.savefig('valid_all_v_all_ppp_bars.png', bbox_inches='tight')
 plt.show()
+
+
+alignment_log.close()
