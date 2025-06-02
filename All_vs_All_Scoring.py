@@ -1,35 +1,17 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[33]:
-
-
 from rdkit import Chem
 from rdkit.Chem import AllChem
-import numpy as np    #imported this
+import numpy as np    
 import math
-import pickle 
+import pickle
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-
-# In[2]:
-
-
-# empty list to read list from a file
 smiles = []
 
-# open file and read the content in a list
 with open(r'smiles.txt', 'r') as fp:
     for line in fp:
-        # remove linebreak from a current name
-        # linebreak is the last character of each line
         x = line[:-1]
-
-        # add current item to the list
         smiles.append(x)
-
-
-# In[3]:
-
 
 #Returns all gast_charges in database into a list
 gast_charges = []
@@ -43,9 +25,29 @@ gast_charges = [item for sublist in gast_charges for item in sublist]
 gast_charges = [x for x in gast_charges if not math.isnan(x)]
 gast_charges = [x for x in gast_charges if not math.isinf(x)]
 
+plt.hist(gast_charges, bins=50, edgecolor='black')
+plt.title("Distribution of Gasteiger Charges")
+plt.xlabel("Gasteiger Charge")
+plt.ylabel("Frequency")
+plt.grid(True)
+plt.show()
 
-# In[4]:
+sns.kdeplot(gast_charges, fill=True, color="skyblue", linewidth=1.5)
+plt.xlabel("Gasteiger Charge")
+plt.ylabel("Density")
+plt.title("Density Plot of Gasteiger Charges")
+plt.grid(True, linestyle='--', alpha=0.6)
+plt.tight_layout()
+plt.show()
 
+sns.histplot(gast_charges, bins=50, kde=True, stat="density", color="skyblue", edgecolor="black")
+plt.xlabel("Gasteiger Charge")
+plt.ylabel("Density")
+plt.title("Distribution of Gasteiger Charges")
+sns.despine()
+plt.grid(True, linestyle='--', alpha=0.5)
+plt.tight_layout()
+plt.show()
 
 #function that yields database of differences
 def gast_diff(gast):
@@ -57,10 +59,6 @@ def gast_diff(gast):
                 
     return(gast_charge)
 
-
-# In[15]:
-
-
 #creates the scoring matrix of all vs all
 score = {}
 total_count = len(gast_charges)  
@@ -69,10 +67,6 @@ for i in range(0,30):
     count = len([x for x in gast_charges if x >= test])    
     prob = count/total_count
     score[test] = np.log2(prob)
-
-
-# In[9]:
-
 
 with open('score_all_v_all.pkl', 'wb') as f:
     pickle.dump(score, f)
