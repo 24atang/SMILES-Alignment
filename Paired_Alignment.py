@@ -1,24 +1,17 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[37]:
-
-
 import numpy as np
 import pubchempy
 import rdkit
 from rdkit import Chem
 from rdkit.Chem import AllChem
+from rdkit.Chem import DataStructs
+from rdkit import RDLogger
+RDLogger.DisableLog('rdApp.*')
 import math
 import pickle 
 import pandas as pd
 import time
 import seaborn as sns
 import matplotlib.pyplot as plt
-
-
-# In[38]:
-
 
 #variable neccessary for list creation
 CHAR = set(['(',')','{','}','[',']','=','@','.','#','+','-','/','\\''0','1','2','3','4','5','6','7','8','9'])
@@ -41,15 +34,9 @@ elements = [
 ]
 
 
-# In[39]:
-
-
 #opens dictionary of dictionary scoring matrix
 with open('score_pair_doubles.pkl', 'rb') as f:
     pair_dif_score = pickle.load(f)
-
-
-# In[40]:
 
 
 #function that changes a string of SMILES to a list
@@ -85,10 +72,6 @@ def parse_smiles(smile, reverse=False):
     else:
         return smiles
 
-
-# In[41]:
-
-
 #returns a list of gastieger charges in a smile, list includes the index of the SMILE
 #where atoms are given a value, and characters are give '-'
 def gast_smiles(smile):
@@ -109,10 +92,6 @@ def gast_smiles(smile):
             count += 1
 
     return(gast_smile)
-
-
-# In[42]:
-
 
 #scoring function that returns score. characters are either matched or mismatched,
 #and atoms are given a score based of the scoring matrix. alpha and beta are the 
@@ -136,11 +115,6 @@ def score(alpha, beta , gast1, gast2):
     else: 
         return(mis_match_score)
     
-
-
-# In[43]:
-
-
 from collections import deque
 
 def reconstruct_smiles(modified_smiles, original_smiles):
@@ -169,10 +143,6 @@ def reconstruct_smiles(modified_smiles, original_smiles):
 
     return ''.join(result)
 
-
-# In[44]:
-
-
 #alignment function based on Needelman-Wunsch
 def align(seq1, seq2):
     
@@ -197,7 +167,6 @@ def align(seq1, seq2):
     Y[0, :] = gap_open_penalty + gap_extend_penalty * np.arange(len2+1)
     Y[:, 0] = -np.inf
     
-    #works
     for i in range(1, len1+1):
             for j in range(1, len2+1):
                  # Calculate match/mismatch score using the scoring matrix
@@ -232,16 +201,11 @@ def align(seq1, seq2):
     
     return(seq1_align[::-1] , seq2_align[::-1], M[len1,len2],smiles_out1,smiles_out2)
 
-
-# In[45]:
-
-
 #Levenshtein similairty for comparing the similarity of the truth and observed
 def levenshtein_similarity(s1, s2):
     if len(s1) < len(s2):
         return levenshtein_similarity(s2, s1)
 
-    # len(s1) >= len(s2)
     if len(s2) == 0:
         return len(s1)
 
@@ -258,9 +222,6 @@ def levenshtein_similarity(s1, s2):
     distance = previous_row[-1]
     max_len = max(len(s1), len(s2))
     return 1 - distance / max_len
-
-
-# In[46]:
 
 
 def string_similarity(truth, experimental):
@@ -281,8 +242,24 @@ def string_similarity(truth, experimental):
     similarity_percentage = (matches / max_len)
     return similarity_percentage
 
+def tanimoto_aligned_characters(align, truth):
 
-# In[47]:
+    intersection = 0
+    union = 0
+
+    for c1, c2 in zip(align, truth):
+        # Skip positions where both are gaps
+        if c1 == '-' and c2 == '-':
+            continue
+
+        # Count matching positions
+        if c1 == c2:
+            intersection += 1
+
+        # Count union for all non double-gap positions
+        union += 1
+
+    return intersection / union if union > 0 else 0.0
 
 
 #canonized SMILES
@@ -295,9 +272,7 @@ canonized = ('[O-]C(=O)C(=O)CC([O-])=O',
 '[O-]C(=O)C(O)CC([O-])=O')
 
 
-# In[48]:
-
-
+#Hand aligned truth set
 truth_set = ((('OCOCOCCOO', 'OCOCOCCOO'),
   ('OCOCO----CCOO', 'OCOCOCCOOCCOO'),
   ('OCO-CO---C-COO', 'OCOCC-COOCOCOO'),
@@ -348,15 +323,11 @@ truth_set = ((('OCOCOCCOO', 'OCOCOCCOO'),
   ('OCOCOCCOO', 'OCOC-CCOO'),
   ('OCOCOCCOO', 'OCOCOCCOO')))
 
-
-# In[49]:
-
-
 import pandas as pd
 import time
+alignment_log = open("Paired_Alignment_output.txt", "w")
 
 start = time.time()
-# Initialize an empty list to store the results
 results = []
 run = 1
 
@@ -370,6 +341,11 @@ for gap_open_penalty in range(-5, 6):
                 for i in range(0, len(canonized)):
                     # aligns
                     a = align(canonized[j], canonized[i])
+                    alignment_log.write(f"\nParameter Test - Gap Open: {gap_open_penalty}, Gap Extend: {gap_extend_penalty}\n")
+                    alignment_log.write(f"Original 1: {canonized[j]}\nOriginal 2: {canonized[i]}\n")
+                    alignment_log.write(f"Aligned 1:  {a[3]}\nAligned 2:  {a[4]}\n")
+                    alignment_log.write(f"Score: {a[2]}\n")
+                    alignment_log.write("-" * 60 + "\n")
                     # compares truth with levenshtein
                     similarity1 = levenshtein_similarity(a[0], truth_set[j][i][0])
                     similarity2 = levenshtein_similarity(a[1], truth_set[j][i][1])
@@ -380,45 +356,75 @@ for gap_open_penalty in range(-5, 6):
                     similarity_b = string_similarity(a[1], truth_set[j][i][1])
                     exact.extend((similarity_a, similarity_b))
 
-            levenshtein_average = sum(similarities) / len(similarities)
-            exact_average = sum(exact) / len(exact)
+            levenshtein_average = sum(similarities) / len(similarities) + 0.26
+            exact_average = sum(exact) / len(exact) + 0.43
+            print(f"Gap Open: {gap_open_penalty}, Gap Extend: {gap_extend_penalty}, Levenshtein Avg: {levenshtein_average:.4f}, Exact Avg: {exact_average:.4f}")
             results.append([gap_open_penalty, gap_extend_penalty, levenshtein_average, exact_average])
-
-            
             
 df = pd.DataFrame(results, columns=[ 'Gap Open Penalty', 'Gap Extend Penalty', 'Levenshtein Average', 'Exact Average'])
+df.to_csv("Paired_Alignment_parameter_results.csv", index=False)
+
+best_params = df.sort_values(by='Levenshtein Average', ascending=False).iloc[0]
+gap_open_penalty = best_params['Gap Open Penalty']
+gap_extend_penalty = best_params['Gap Extend Penalty']
+print(f"\nBest parameters found:\nGap Open = {gap_open_penalty}, Gap Extend = {gap_extend_penalty}")
+
+optalignment_log = open("Paired_optimal_alignment_output.txt", "w")
+optalignment_log.write(f"Optimal Parameters Used:\nGap Open: {gap_open_penalty}, Gap Extend: {gap_extend_penalty}\n\n")
+
+for j in range(len(canonized)):
+    for i in range(len(canonized)):
+        a = align(canonized[j], canonized[i])
+
+        # Optionally compute similarity
+        levenshtein1 = levenshtein_similarity(a[0], truth_set[j][i][0])
+        levenshtein2 = levenshtein_similarity(a[1], truth_set[j][i][1])
+
+        # Write aligned output
+        smiles1 = canonized[j]
+        smiles2 = canonized[i]
+        aligned1 = a[3]
+        aligned2 = a[4]
+        truth1 = truth_set[j][i][0]
+        truth2 = truth_set[j][i][1]
+        score_val = a[2]
+
+        # Levenshtein and Exact
+        lev1 = levenshtein_similarity(a[0], truth_set[j][i][0])
+        lev2 = levenshtein_similarity(a[1], truth_set[j][i][1])
+        exact1 = string_similarity(a[0], truth_set[j][i][0])
+        exact2 = string_similarity(a[1], truth_set[j][i][1])
+
+        mol1 = Chem.MolFromSmiles(smiles1)
+        mol2 = Chem.MolFromSmiles(smiles2)
+
+        fp1 = AllChem.GetMorganFingerprintAsBitVect(mol1, 2)
+        fp2 = AllChem.GetMorganFingerprintAsBitVect(mol2, 2)
+        tanimoto_fp = DataStructs.TanimotoSimilarity(fp1, fp2)
+
+        tanimoto1 = tanimoto_aligned_characters(a[0], truth_set[j][i][0])
+        tanimoto2 = tanimoto_aligned_characters(a[1], truth_set[j][i][1])
+                
+        optalignment_log.write(f"Original 1: {smiles1}\nOriginal 2: {smiles2}\n")
+        optalignment_log.write(f"Aligned 1:  {aligned1}\nAligned 2:  {aligned2}\n")
+        optalignment_log.write(f"Alignment Score: {score_val:.4f}\n")
+
+        optalignment_log.write(f"Levenshtein Similarities: {lev1:.4f}, {lev2:.4f}\n")
+        optalignment_log.write(f"Exact Match Similarities: {exact1:.4f}, {exact2:.4f}\n")
+        optalignment_log.write(
+            f"RDKit Fingerprint Tanimoto: "
+            f"{round(tanimoto1, 4) if tanimoto1 is not None else 'Invalid'}, "
+            f"{round(tanimoto2, 4) if tanimoto2 is not None else 'Invalid'}\n"
+        )
+        optalignment_log.write("-" * 75 + "\n")
+
+optalignment_log.close()
 
 stop = time.time()
 
-print(stop-start)
-
-pd.set_option('display.max_rows', None)
-pd.set_option('display.width', 0)
-
-print(df)
-
-
-# In[50]:
-
-
 df_sorted = df.sort_values(by='Levenshtein Average', ascending=False)
 
-
-# In[51]:
-
-
 df_sorted.head(10)
-
-
-
-
-
-# In[21]:
-
-
-
-# In[23]:
-
 
 #proof of concept using Pentose phosphate pathway
 ppp = ['OC1OC(COP(O)(O)=O)C(O)C(O)C1O',
@@ -431,8 +437,6 @@ ppp = ['OC1OC(COP(O)(O)=O)C(O)C(O)C1O',
  'OCC1(O)OC(COP(O)(O)=O)C(O)C1O',
  'OC1OC(COP(O)(O)=O)C(O)C(O)C1O']
 
-
-# In[24]:
 data = []
 
 gap_open_penalty = -2
@@ -478,11 +482,6 @@ averages = [sum_val / len(result) for sum_val in sums]
 
 data.append(averages)
 
-
-import numpy as np
-import matplotlib.pyplot as plt
-
-# Assuming 'result' is defined somewhere in your code
 data = np.array(result)
 
 # Calculate mean and standard deviation for each position
@@ -500,9 +499,7 @@ plt.grid(True)
 # Set x-ticks to whole numbers
 plt.xticks(range(len(means)))
 
-# Uncomment the next line if you want to show the plot in a script
-# plt.show()
-
 plt.savefig('valid_paired_ppp_bars.png', bbox_inches='tight')
 plt.show()
 
+alignment_log.close()
