@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
 import rdkit
 from rdkit import Chem
 from rdkit.Chem import AllChem
@@ -11,12 +8,14 @@ from collections import defaultdict
 from itertools import product
 import pickle
 import gc
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 # Read SMILES strings from file
 smiles = []
 with open(r'smiles.txt', 'r') as fp:
     for line in fp:
-        x = line.strip()  # safer than line[:-1]
+        x = line.strip()
         smiles.append(x)
 
 # Function to calculate Gasteiger charges for each atom
@@ -42,6 +41,36 @@ atom_dict = {}
 for atom, charges in all_charges.items():
     charges = [x for x in charges if not math.isnan(x) and not math.isinf(x)]
     atom_dict[atom] = charges
+all_gast_charges = [charge for charges in atom_dict.values() for charge in charges]
+
+plt.figure(figsize=(8, 6))
+plt.hist(all_gast_charges, bins=50, color='skyblue', edgecolor='black', density=True)
+plt.xlabel("Gasteiger Charge")
+plt.ylabel("Density")
+plt.title("Gasteiger Charge Distribution (Histogram Only)")
+plt.grid(True, linestyle='--', alpha=0.5)
+plt.tight_layout()
+plt.show()
+
+plt.figure(figsize=(8, 6))
+sns.kdeplot(all_gast_charges, fill=True, color="skyblue", linewidth=1.5)
+plt.xlabel("Gasteiger Charge")
+plt.ylabel("Density")
+plt.title("Gasteiger Charge Density Plot")
+sns.despine()
+plt.grid(True, linestyle='--', alpha=0.5)
+plt.tight_layout()
+plt.show()
+
+plt.figure(figsize=(8, 6))
+sns.histplot(all_gast_charges, bins=50, kde=True, stat="density", color="skyblue", edgecolor="black")
+plt.xlabel("Gasteiger Charge")
+plt.ylabel("Density")
+plt.title("Gasteiger Charge Distribution (Histogram + KDE)")
+sns.despine()
+plt.grid(True, linestyle='--', alpha=0.5)
+plt.tight_layout()
+plt.show()
 
 # Build list of atom type pairs
 elements = atom_dict.keys()
@@ -56,7 +85,6 @@ def compute_chunked_combinations(charges, chunk_size=1000):
         for j in range(i+1, n, chunk_size):
             chunk_j = charges[j:j+chunk_size]
             diffs.extend([abs(a - b) for a in chunk_i for b in chunk_j])
-        # handle self-pair chunk (i == j)
         chunk_j = chunk_i
         for x in range(len(chunk_j)):
             for y in range(x+1, len(chunk_j)):
@@ -67,10 +95,8 @@ charge_diffs = {}
 for atom1, atom2 in atom_pairs:
     if atom1 in atom_dict and atom2 in atom_dict:
         if atom1 == atom2:
-            # Intra-type pairwise differences (combinations from one list)
             diffs = compute_chunked_combinations(atom_dict[atom1])
         else:
-            # Inter-type differences (full outer product)
             diffs = []
             list1 = atom_dict[atom1]
             list2 = atom_dict[atom2]
@@ -94,7 +120,7 @@ for pair in pair_dif.keys():
     gast = pair_dif[pair]
     total_count = len(gast)
     if total_count == 0:
-        continue  # Skip pairs with no differences
+        continue  
     score = {}
     for i in range(0, 30):
         test = round(i * 0.1, 1)
