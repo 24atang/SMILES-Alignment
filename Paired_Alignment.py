@@ -356,8 +356,8 @@ for gap_open_penalty in range(-5, 6):
                     similarity_b = string_similarity(a[1], truth_set[j][i][1])
                     exact.extend((similarity_a, similarity_b))
 
-            levenshtein_average = sum(similarities) / len(similarities) + 0.26
-            exact_average = sum(exact) / len(exact) + 0.43
+            levenshtein_average = sum(similarities) / len(similarities) 
+            exact_average = sum(exact) / len(exact) 
             print(f"Gap Open: {gap_open_penalty}, Gap Extend: {gap_extend_penalty}, Levenshtein Avg: {levenshtein_average:.4f}, Exact Avg: {exact_average:.4f}")
             results.append([gap_open_penalty, gap_extend_penalty, levenshtein_average, exact_average])
             
