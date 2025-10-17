@@ -1,7 +1,7 @@
 # SMILES-Alignment
 Simplified Molecular Input Line Entry System-Alignment
 
-#Article Link
+# Article Link
 https://doi.org/10.1186/s12859-025-06278-y
 
 # Overview
