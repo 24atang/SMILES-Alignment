@@ -1,6 +1,9 @@
 # SMILES-Alignment
 Simplified Molecular Input Line Entry System-Alignment
 
+#Article Link
+https://doi.org/10.1186/s12859-025-06278-y
+
 # Overview
 The Python program SMILES-Alignment is a command-line executable program that generates a global alignment of small organic molecules based on their Gasteiger charges. There are two methods through which the alignment can be created: All_vs_All_Alignment and Paired_Alignment. All_vs_All_Alignment procures SMILES representations of molecular structures of each molecule in the metabolic pathway, from which it computes the Gasteiger charges, quantities that encapsulate the relative electronegativities of atoms. The obtained charges are aggregated into a master list containing all charges in all molecules. Then, non-finite values (NaN and infinities) are filtered out and the corresponding atoms are removed from the analysis. Paired_Scoring.py is dedicated to the generation of a paired scoring matrix. The scoring function within this structure is based on the differences in Gasteiger charges between paired atoms. The objective is to uncover any underlying trends or patterns exclusive to these specific atomic pairs, such as all Carbon-Carbon (C-C), Carbon-Oxygen (C-O), etc., across all molecules in the database. By comparing these charge differences across a wide range of molecules, the study aims to identify potential trends or phenomena that might enhance our understanding of the behavior of these atoms within the realm of metabolic reactions that the All vs. All scoring matrix is not capable of. For each atom pair, a scoring matrix similar to that in All_vs_All_Scoring.py is created, with the difference that it bases its scores on the specific pair's charge differences. If used for inference, this program can help us understand when a linear metabolic pathway becomes a cyclic metabolic pathway and at what point a linear pathway can never become a cyclic pathway.
 
